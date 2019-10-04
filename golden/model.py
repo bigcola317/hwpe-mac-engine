@@ -1,4 +1,4 @@
-
+SIMPLE_MUL		= 1
 INPUT_SIZE		= 512		# bytes
 VEC_LEN			= 8			# length of vectors in a and b (in 32-bit words)
 SHIFT			= 31
@@ -30,9 +30,9 @@ def words_to_hex(words, hex_file):
 
 	b = [] # bytes
 	# hex = []
-	for word in words:
+	for j, word in enumerate(words):
 		if word > 0x7FFFFFFF or word < -0x80000000:
-			print('Warning! Number {} is going to be truncated in conversion'.format(word))
+			print('Warning! Number {} at {} is going to be truncated in conversion'.format(word, j))
 		# if negative, compute the complement and that will be the word to encode
 		enc = word if word >= 0 else (0x100000000+word)
 		hex_str = "%0.8x" % enc 
@@ -47,9 +47,6 @@ def words_to_hex(words, hex_file):
 			f.write(b[i] + '\n')
 		f.write(b[i+1])
 	f.close()
-
-
-
 
 
 def load_input_stimuli(file_a, file_b, file_c, size_a, size_b, size_c):
@@ -68,23 +65,28 @@ def load_input_stimuli(file_a, file_b, file_c, size_a, size_b, size_c):
 	return a, b, c
 
 # In simple_mul mode computes element by element products of a and b.
-# In MAC mode computes MAC result of vectors in a and b, that is <vec_a, vec_b> + elem_c,
+# In MAC mode computes MAC result of vectors in a and b, that is <vec_a, vec_b> + elem_c_shifted,
 # where '<,>' denotes the inner product. vec_len defines the length of each
 # vector in this mode, so a and b each contain len(a)/vec_len vectors.  
 # In both modes each result is right-shifted by shift.
 def compute(a, b, c, shift, simple_mult, vec_len):
 	d = []
 	mul = 0
-	
+	acc = 0
+
 	for i, a_i in enumerate(a):
 		b_i = b[i]
 		mul += a_i*b_i
-		if simple_mult or i%vec_len==(vec_len-1):
+		if simple_mult!=1 and i%vec_len==(vec_len-1):
 			print('{}, {}, {}'.format(i, i/vec_len, len(c)))
-			mul += c[i/vec_len]
+			mul += (c[i/vec_len] << shift)
 			shifted = mul >> shift
 			d.append(shifted)
-			print('x + {} = {} >> {}'.format(c[i/vec_len], mul, shifted))
+			# print('x + {} = {} >> {}'.format(c[i/vec_len], mul, shifted))
+			mul = 0
+		elif simple_mult:
+			shifted = mul >> shift
+			d.append(shifted)
 			mul = 0
 
 	return d
@@ -93,9 +95,10 @@ def compute(a, b, c, shift, simple_mult, vec_len):
 def main():
 	a, b, c = load_input_stimuli(INPUT_FILE_A, INPUT_FILE_B, INPUT_FILE_C, INPUT_SIZE, INPUT_SIZE, INPUT_SIZE/VEC_LEN)
 	print(c)
-	d = compute(a, b, c, simple_mult=0, shift=SHIFT, vec_len=VEC_LEN)
+	d = compute(a, b, c, simple_mult=SIMPLE_MUL, shift=SHIFT, vec_len=VEC_LEN)
 	words_to_hex(d, OUTPUT_FILE_D)
 	print('Done.')
+
 
 if __name__ == '__main__':
 	main()

@@ -49,6 +49,9 @@ module mac_engine
 
   logic unsigned [$clog2(MAC_CNT_LEN):0] cnt;
   logic unsigned [$clog2(MAC_CNT_LEN):0] r_cnt;
+
+  logic end_accum;
+
   logic signed [63:0] c_shifted;
   logic signed [63:0] mult;
   logic signed [63:0] r_mult;
@@ -78,7 +81,7 @@ module mac_engine
   // shift c_i by ctrl_i.shift bits to the left
   always_comb
   begin : shift_c
-    c_shifted = $signed(c_i.data <<< ctrl_i.shift);
+    c_shifted = $signed(c_i.data) <<< ctrl_i.shift;
   end
 
   // multiply a_i by b_i
@@ -180,7 +183,7 @@ module mac_engine
       end
       // r_acc value is updated if there is a c_i valid handshake at its input
       else if (c_i.valid & c_i.ready) begin
-        r_acc <= $signed(c_shifted);
+        r_acc <= $signed(r_acc + c_shifted);
       end
       // r_acc value is updated if there is a r_mult valid handshake at its input
       else if (r_mult_valid & r_mult_ready) begin
@@ -193,7 +196,8 @@ module mac_engine
 //--------------------------------------------------------
 // R_ACC_VALID
 //--------------------------------------------------------
-
+  
+  assign end_accum = ctrl_i.simple_mul ? ( (cnt == ctrl_i.len) & r_mult_valid & r_mult_ready ) : ( (r_cnt == ctrl_i.len) & c_i.valid & c_i.ready );
 
   always_ff @(posedge clk_i or negedge rst_ni)
   begin : accumulator_valid
@@ -207,7 +211,7 @@ module mac_engine
       // r_acc_valid is re-evaluated after a valid handshake or in transition to 1
       if( r_acc_valid & r_acc_ready ) begin
         r_acc_valid <= '0;
-      end else if( (cnt == ctrl_i.len) & r_mult_valid & r_mult_ready ) begin
+      end else if( end_accum ) begin
         r_acc_valid <= 1'b1;
       end else begin
         r_acc_valid <= r_acc_valid;
