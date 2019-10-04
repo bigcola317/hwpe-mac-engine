@@ -1,5 +1,8 @@
 __pycache__/
+.cached_ipdb.json
+
 fpga/
 ips/
 ipstools/
 sim/
+golden/hwpe_stimuli_*

@@ -13,7 +13,8 @@ module mac_top_wrap
 #(
   parameter N_CORES = 2,
   parameter MP  = 4,
-  parameter ID  = 10
+  parameter ID  = 10,
+  parameter DATA_WIDTH = 32
 )
 (
   // global signals
@@ -82,9 +83,10 @@ module mac_top_wrap
   end
 
   mac_top #(
-    .N_CORES ( N_CORES ),
-    .MP      ( MP      ),
-    .ID      ( ID      )
+    .N_CORES    ( N_CORES     ),
+    .MP         ( MP          ),
+    .ID         ( ID          ),
+    .DATA_WIDTH ( DATA_WIDTH  )
   ) i_mac_top (
     .clk_i       ( clk_i       ),
     .rst_ni      ( rst_ni      ),

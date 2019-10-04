@@ -1,5 +1,8 @@
 hwpe-ctrl:
   commit: ec068eb
 hwpe-stream:
-  commit: 1a9b04f
+  group: bigcola317
+  commit: mac-single-tcdm
+tech_cells_generic:
+  commit: b35652608124b7ea813818b14a00ca76edd7599d
 

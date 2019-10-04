@@ -1,6 +1,7 @@
 
-INPUT_SIZE		= 512	 # bytes
-
+INPUT_SIZE		= 512		# bytes
+VEC_LEN			= 8			# length of vectors in a and b (in 32-bit words)
+SHIFT			= 31
 INPUT_FILE_A 	= 'hwpe_stimuli_a.hex'
 INPUT_FILE_B 	= 'hwpe_stimuli_b.hex'
 INPUT_FILE_C 	= 'hwpe_stimuli_c.hex'
@@ -51,38 +52,48 @@ def words_to_hex(words, hex_file):
 
 
 
-def load_input_stimuli(file_a, file_b, file_c, file_size):
+def load_input_stimuli(file_a, file_b, file_c, size_a, size_b, size_c):
 	
 	a = []
 	b = []
 	c = []
 
 	with open(file_a, 'r') as f_a:
-		a = words_from_hex(f_a, file_size)
+		a = words_from_hex(f_a, size_a)
 		with open(file_b, 'r') as f_b:
-			b = words_from_hex(f_b, file_size)
+			b = words_from_hex(f_b, size_b)
 			with open(file_c, 'r') as f_c:
-				c = words_from_hex(f_c, file_size)
+				c = words_from_hex(f_c, size_c)
 
 	return a, b, c
 
-
-def compute(a, b, c, shift, simple_mult=1):
+# In simple_mul mode computes element by element products of a and b.
+# In MAC mode computes MAC result of vectors in a and b, that is <vec_a, vec_b> + elem_c,
+# where '<,>' denotes the inner product. vec_len defines the length of each
+# vector in this mode, so a and b each contain len(a)/vec_len vectors.  
+# In both modes each result is right-shifted by shift.
+def compute(a, b, c, shift, simple_mult, vec_len):
 	d = []
+	mul = 0
 	
 	for i, a_i in enumerate(a):
 		b_i = b[i]
-		mul = a_i*b_i
-		shifted = mul >> shift
-		# print('{} * {} = {} >> {}\n'.format(a_i, b_i, mul, shifted))
-		d.append(shifted)
+		mul += a_i*b_i
+		if simple_mult or i%vec_len==(vec_len-1):
+			print('{}, {}, {}'.format(i, i/vec_len, len(c)))
+			mul += c[i/vec_len]
+			shifted = mul >> shift
+			d.append(shifted)
+			print('x + {} = {} >> {}'.format(c[i/vec_len], mul, shifted))
+			mul = 0
 
 	return d
 
 
 def main():
-	a, b, c = load_input_stimuli(INPUT_FILE_A, INPUT_FILE_B, INPUT_FILE_C, INPUT_SIZE)
-	d = compute(a, b, c, simple_mult=1, shift=31)
+	a, b, c = load_input_stimuli(INPUT_FILE_A, INPUT_FILE_B, INPUT_FILE_C, INPUT_SIZE, INPUT_SIZE, INPUT_SIZE/VEC_LEN)
+	print(c)
+	d = compute(a, b, c, simple_mult=0, shift=SHIFT, vec_len=VEC_LEN)
 	words_to_hex(d, OUTPUT_FILE_D)
 	print('Done.')
 

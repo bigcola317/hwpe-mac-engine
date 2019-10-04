@@ -55,6 +55,8 @@ module mac_fsm (
     // direct mappings - these have to be here due to blocking/non-blocking assignment
     // combination with the same ctrl_engine_o/ctrl_streamer_o variable
     // shift-by-3 due to conversion from bits to bytes
+    ctrl_streamer_o.simple_mul = ctrl_i.simple_mul;
+    ctrl_streamer_o.len = ctrl_i.len;
     // a stream
     ctrl_streamer_o.a_source_ctrl.addressgen_ctrl.trans_size  = ctrl_i.len;
     ctrl_streamer_o.a_source_ctrl.addressgen_ctrl.line_stride = '0;
@@ -151,7 +153,7 @@ module mac_fsm (
       FSM_COMPUTE: begin
         ctrl_engine_o.clear  = 1'b0;
         // compute, then update the indeces (and write output if necessary)
-        if((flags_engine_i.cnt == ctrl_i.len) & flags_engine_i.acc_valid) begin
+        if(/*(flags_engine_i.cnt == ctrl_i.len) & */flags_engine_i.acc_done) begin
           next_state = FSM_UPDATEIDX;
         end
       end

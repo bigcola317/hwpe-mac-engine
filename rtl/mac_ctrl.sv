@@ -89,7 +89,7 @@ module mac_ctrl
   /* Microcode processor */
   generate
     if(UCODE_HARDWIRED != 0) begin
-      // equivalent to the microcode in ucode/code.yml
+      // equivalent to the microcode in ucode/mac_code.yml
       assign ucode_flat = 224'h0000000000040000000000000000000000000000000008cd11a12c05;
     end
     else begin

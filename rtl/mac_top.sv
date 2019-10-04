@@ -20,7 +20,8 @@ module mac_top
 #(
   parameter int unsigned N_CORES = 2,
   parameter int unsigned MP  = 4,
-  parameter int unsigned ID  = 10
+  parameter int unsigned ID  = 10,
+  parameter DATA_WIDTH = 32
 )
 (
   // global signals
@@ -42,22 +43,22 @@ module mac_top
   flags_engine_t   engine_flags;
 
   hwpe_stream_intf_stream #(
-    .DATA_WIDTH(32)
+    .DATA_WIDTH(DATA_WIDTH)
   ) a (
     .clk ( clk_i )
   );
   hwpe_stream_intf_stream #(
-    .DATA_WIDTH(32)
+    .DATA_WIDTH(DATA_WIDTH)
   ) b (
     .clk ( clk_i )
   );
   hwpe_stream_intf_stream #(
-    .DATA_WIDTH(32)
+    .DATA_WIDTH(DATA_WIDTH)
   ) c (
     .clk ( clk_i )
   );
   hwpe_stream_intf_stream #(
-    .DATA_WIDTH(32)
+    .DATA_WIDTH(DATA_WIDTH)
   ) d (
     .clk ( clk_i )
   );
@@ -75,7 +76,8 @@ module mac_top
   );
 
   mac_streamer #(
-    .MP ( MP )
+    .MP         ( MP          ),
+    .DATA_WIDTH ( DATA_WIDTH  )
   ) i_streamer (
     .clk_i            ( clk_i          ),
     .rst_ni           ( rst_ni         ),
@@ -92,7 +94,7 @@ module mac_top
   );
 
   mac_ctrl #(
-    .N_CORES   ( 2  ),
+    .N_CORES   ( N_CORES  ),
     .N_CONTEXT ( 2  ),
     .N_IO_REGS ( 16 ),
     .ID ( ID )

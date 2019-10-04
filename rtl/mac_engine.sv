@@ -74,6 +74,7 @@ module mac_engine
   // Packed structs are essentially bit vectors where bit fields have a name, and as such
   // are easily synthesizable and much more readable than Verilog-2001-ish code.
 
+
   // shift c_i by ctrl_i.shift bits to the left
   always_comb
   begin : shift_c
@@ -86,39 +87,83 @@ module mac_engine
     mult = $signed(a_i.data) * $signed(b_i.data);
   end
 
+//--------------------------------------------------------
+// STARTED STATUS
+//--------------------------------------------------------
+
+    logic started;
+
+    always_ff @(posedge clk_i or negedge rst_ni)
+    begin
+        if(~rst_ni) begin
+          started <= '0;
+        end
+        else if(ctrl_i.clear) begin
+          started <= '0;
+        end
+        else if(ctrl_i.enable) begin
+            if (ctrl_i.start) begin
+                started <= '1;
+            end else begin
+                started <= started;
+            end
+        end
+    end
+
+//--------------------------------------------------------
+// R_MULT
+//--------------------------------------------------------
+
   // r_mult stores a_i * b_i
   always_ff @(posedge clk_i or negedge rst_ni)
   begin : mult_pipe_data
     if(~rst_ni) begin
       r_mult <= '0;
+      r_mult_valid <= '0;
     end
     else if (ctrl_i.clear) begin
       r_mult <= '0;
+      r_mult_valid <= '0;
     end
     else if (ctrl_i.enable) begin
-      // r_mult value is updated if there is a valid handshake at its input
-      if (a_i.valid & b_i.valid & a_i.ready & b_i.ready) begin
+      // if there is valid handshake of input data
+      // new computed value is stored and validated 
+      if ( a_i.valid & b_i.valid & a_i.ready & b_i.ready ) begin
         r_mult <= mult;
+        r_mult_valid <= 1'b1;
+      end else begin 
+        // otherwise value is maintained, and it is valid
+        // until that value is consumed downstream
+        r_mult <= r_mult;
+        if ( r_mult_valid & r_mult_ready ) begin
+            r_mult_valid <= '0;
+        end else begin
+            r_mult_valid <= r_mult_valid;
+        end
       end
     end
   end
 
-  // r_mult is valid following a valid handshake
-  always_ff @(posedge clk_i or negedge rst_ni)
-  begin : mult_pipe_valid
-    if(~rst_ni) begin
-      r_mult_valid <= '0;
-    end
-    else if (ctrl_i.clear) begin
-      r_mult_valid <= '0;
-    end
-    else if (ctrl_i.enable) begin
-      // r_mult_valid is re-evaluated after a valid handshake or in transition to 1
-      if ((a_i.valid & b_i.valid) | (r_mult_valid & r_mult_ready)) begin
-        r_mult_valid <= a_i.valid & b_i.valid;
-      end
-    end
-  end
+  // // r_mult is valid following a valid handshake
+  // always_ff @(posedge clk_i or negedge rst_ni)
+  // begin : mult_pipe_valid
+  //   if(~rst_ni) begin
+  //     r_mult_valid <= '0;
+  //   end
+  //   else if (ctrl_i.clear) begin
+  //     r_mult_valid <= '0;
+  //   end
+  //   else if (ctrl_i.enable) begin
+  //     // r_mult_valid is re-evaluated after a valid handshake or in transition to 1
+  //     if ((a_i.valid & b_i.valid) | (r_mult_valid & r_mult_ready)) begin
+  //       r_mult_valid <= a_i.valid & b_i.valid;
+  //     end
+  //   end
+  // end
+
+//--------------------------------------------------------
+// R_ACC
+//--------------------------------------------------------
 
   always_ff @(posedge clk_i or negedge rst_ni)
   begin : accumulator
@@ -144,6 +189,12 @@ module mac_engine
     end
   end
 
+
+//--------------------------------------------------------
+// R_ACC_VALID
+//--------------------------------------------------------
+
+
   always_ff @(posedge clk_i or negedge rst_ni)
   begin : accumulator_valid
     if(~rst_ni) begin
@@ -154,11 +205,53 @@ module mac_engine
     end
     else if (ctrl_i.enable) begin
       // r_acc_valid is re-evaluated after a valid handshake or in transition to 1
-      if(((r_cnt == ctrl_i.len) & r_mult_valid & r_mult_ready) | (r_acc_valid & r_acc_ready)) begin
-        r_acc_valid <= (r_cnt == ctrl_i.len);
+      if( r_acc_valid & r_acc_ready ) begin
+        r_acc_valid <= '0;
+      end else if( (cnt == ctrl_i.len) & r_mult_valid & r_mult_ready ) begin
+        r_acc_valid <= 1'b1;
+      end else begin
+        r_acc_valid <= r_acc_valid;
       end
     end
   end
+
+  // The control counter is implemented directly inside this module; as the control is
+  // minimal, it was not deemed convenient to move it to another submodule. For bigger
+  // FSMs that is typically the most advantageous choice.
+
+
+//--------------------------------------------------------
+// COUNTER
+//--------------------------------------------------------
+
+  always_comb
+  begin
+    cnt = r_cnt + 1;
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni)
+  begin
+    if(~rst_ni) begin
+      r_cnt <= '0;
+      started <= '0;
+    end
+    else if(ctrl_i.clear) begin
+      r_cnt <= '0;
+      started <= '0;
+    end
+    else if(ctrl_i.enable) begin
+      if (started && (r_cnt < ctrl_i.len) && (r_mult_valid & r_mult_ready == 1'b1)) begin
+        r_cnt <= cnt;
+      end
+    end
+  end
+
+  assign flags_o.cnt = r_cnt;
+
+
+//--------------------------------------------------------
+// OUTPUTS
+//--------------------------------------------------------
 
   always_comb
   begin : d_nonshifted_comb
@@ -174,37 +267,14 @@ module mac_engine
 
   always_comb
   begin
+    flags_o.acc_done = '0;
+    if( r_acc_valid & r_acc_ready ) begin
+      flags_o.acc_done = 1'b1;
+    end
     d_o.data  = $signed(d_nonshifted >>> ctrl_i.shift); // no saturation/clipping
     d_o.valid = ctrl_i.enable & d_nonshifted_valid;
     d_o.strb  = '1; // for now, strb is always '1
   end
-
-  // The control counter is implemented directly inside this module; as the control is
-  // minimal, it was not deemed convenient to move it to another submodule. For bigger
-  // FSMs that is typically the most advantageous choice.
-
-  always_comb
-  begin
-    cnt = r_cnt + 1;
-  end
-
-  always_ff @(posedge clk_i or negedge rst_ni)
-  begin
-    if(~rst_ni) begin
-      r_cnt <= '0;
-    end
-    else if(ctrl_i.clear) begin
-      r_cnt <= '0;
-    end
-    else if(ctrl_i.enable) begin
-      if ((ctrl_i.start == 1'b1) || ((r_cnt > 0) && (r_cnt < ctrl_i.len) && (r_mult_valid & r_mult_ready == 1'b1))) begin
-        r_cnt <= cnt;
-      end
-    end
-  end
-
-  assign flags_o.cnt = r_cnt;
-  assign flags_o.acc_valid = r_acc_valid;
 
   // Ready signals have to be propagated backwards through pipeline stages (combinationally).
   // To avoid deadlocks, the following rules have to be followed:
@@ -216,17 +286,17 @@ module mac_engine
   // R_valid & R_ready denominate the handshake at the *output* (Q port) of pipe register R
 
   // output accepts new value from accumulator when the output is ready or r_acc is invalid
-  assign r_acc_ready  = d_o.ready | ~r_acc_valid;
+  assign r_acc_ready  = d_o.ready /*| ~r_acc_valid*/;
   // accumulator accepts new value from multiplier when
   //   1) output is ready or r_mult is invalid (if in simple multiplication mode)
   //   2) r_acc is ready or r_mult is invalid (if in scalar product mode)
-  assign r_mult_ready = (ctrl_i.simple_mul) ? d_o.ready   | ~r_mult_valid
-                                            : r_acc_ready | ~r_mult_valid;
+  assign r_mult_ready = (ctrl_i.simple_mul) ? d_o.ready   /*| ~r_mult_valid*/
+                                            : r_acc_ready /*| ~r_mult_valid*/;
   // multiplier accepts new value from a_i/b_i when r_mult is ready and both a_i/b_i are valid, or when both a_i/b_i are invalid
   assign a_i.ready = (r_mult_ready & a_i.valid & b_i.valid) | (~a_i.valid & ~b_i.valid);
   assign b_i.ready = (r_mult_ready & a_i.valid & b_i.valid) | (~a_i.valid & ~b_i.valid);
   // multiplier accepts new value from c_i when r_acc is ready or c_i is invalid
-  assign c_i.ready    = r_acc_ready  | ~c_i.valid;
+  assign c_i.ready    = r_acc_ready  /*| ~c_i.valid*/;
 
   // The following assertions help in getting the rules on ready & valid right.
   // They are copied from the general stream rules in hwpe_stream_interfaces.sv

@@ -15,8 +15,12 @@
 #
 
 from ucode_common import *
+import sys
 
-loops_ops,code = ucode_load("code.yml")
+if(len(sys.argv)!=2):
+  print('Usage: <yaml file>')
+
+loops_ops,code = ucode_load(sys.argv[1])
 
 bytecode = ucode_bytecode(code, loops_ops)
 print "ucode bytecode: %d'h%s" % (bytecode['code'].length, str(bytecode['code'].hex))

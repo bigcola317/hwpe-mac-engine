@@ -51,7 +51,7 @@ package mac_package;
 
   typedef struct packed {
     logic unsigned [$clog2(MAC_CNT_LEN):0] cnt; // 1 bit more as cnt starts from 1, not 0
-    logic acc_valid;
+    logic acc_done;
   } flags_engine_t;
 
   typedef struct packed {
@@ -59,6 +59,8 @@ package mac_package;
     hwpe_stream_package::ctrl_sourcesink_t b_source_ctrl;
     hwpe_stream_package::ctrl_sourcesink_t c_source_ctrl;
     hwpe_stream_package::ctrl_sourcesink_t d_sink_ctrl;
+    logic simple_mul;
+    logic unsigned [$clog2(MAC_CNT_LEN):0] len; // 1 bit more as cnt starts from 1, not 0
   } ctrl_streamer_t;
 
   typedef struct packed {
