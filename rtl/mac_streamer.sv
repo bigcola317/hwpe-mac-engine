@@ -148,54 +148,6 @@ module mac_streamer
   );
 
 
-  // // TCDM-side FIFOs
-  // hwpe_stream_tcdm_fifo_load #(
-  //   .FIFO_DEPTH ( 4 )
-  // ) i_a_tcdm_fifo_load (
-  //   .clk_i       ( clk_i             ),
-  //   .rst_ni      ( rst_ni            ),
-  //   .clear_i     ( clear_i           ),
-  //   .flags_o     (                   ),
-  //   .ready_i     ( a_tcdm_fifo_ready ),
-  //   .tcdm_slave  ( tcdm_fifo_0[0]    ),
-  //   .tcdm_master ( tcdm_fifo[0]      )
-  // );
-
-  // hwpe_stream_tcdm_fifo_load #(
-  //   .FIFO_DEPTH ( 4 )
-  // ) i_b_tcdm_fifo_load (
-  //   .clk_i       ( clk_i             ),
-  //   .rst_ni      ( rst_ni            ),
-  //   .clear_i     ( clear_i           ),
-  //   .flags_o     (                   ),
-  //   .ready_i     ( b_tcdm_fifo_ready ),
-  //   .tcdm_slave  ( tcdm_fifo_1[0]    ),
-  //   .tcdm_master ( tcdm_fifo[1]      )
-  // );
-
-  // hwpe_stream_tcdm_fifo_load #(
-  //   .FIFO_DEPTH ( 4 )
-  // ) i_c_tcdm_fifo_load (
-  //   .clk_i       ( clk_i             ),
-  //   .rst_ni      ( rst_ni            ),
-  //   .clear_i     ( clear_i           ),
-  //   .flags_o     (                   ),
-  //   .ready_i     ( c_tcdm_fifo_ready ),
-  //   .tcdm_slave  ( tcdm_fifo_2[0]    ),
-  //   .tcdm_master ( tcdm_fifo[2]      )
-  // );
-
-  // hwpe_stream_tcdm_fifo_store #(
-  //   .FIFO_DEPTH ( 4 )
-  // ) i_d_tcdm_fifo_store (
-  //   .clk_i       ( clk_i          ),
-  //   .rst_ni      ( rst_ni         ),
-  //   .clear_i     ( clear_i        ),
-  //   .flags_o     (                ),
-  //   .tcdm_slave  ( tcdm_fifo_3[0] ),
-  //   .tcdm_master ( tcdm_fifo[3]   )
-  // );
-
 always_comb begin
   tcdm_fifo[0].req        = tcdm_fifo_0[0].req;
   tcdm_fifo[0].add        = tcdm_fifo_0[0].add;
@@ -234,10 +186,16 @@ always_comb begin
   tcdm_fifo_3[0].r_valid  = tcdm_fifo[3].r_valid;
 end
 
+  assign flags_o.a_addr = tcdm_fifo[0].add;
+  assign flags_o.b_addr = tcdm_fifo[1].add;
+  assign flags_o.c_addr = tcdm_fifo[2].add;
+  assign flags_o.d_addr = tcdm_fifo[3].add;
 
-	typedef enum {A=0, B=1, C=2, D=3} tcdm_id;
-	tcdm_id req_sel_q, req_sel_n, resp_sel_q;
-	logic [$clog2(MAC_CNT_LEN):0] cnt, r_cnt;
+
+
+  typedef enum {A=0, B=1, C=2, D=3} tcdm_id;
+  tcdm_id req_sel_q, req_sel_n, resp_sel_q;
+  logic [$clog2(MAC_CNT_LEN):0] cnt, r_cnt;
 
   always_comb begin
     cnt = r_cnt + 1'b1;
@@ -246,106 +204,72 @@ end
     end
   end
 
-	always_ff @(posedge clk_i or negedge rst_ni)
-	begin : main_fsm_seq
-		if(~rst_ni) begin
-			r_cnt <= '0;
-			req_sel_q <= A;
-			resp_sel_q <= A;
-		end
-		else if(clear_i) begin
-			r_cnt <= '0;
-			req_sel_q <= A;
-			resp_sel_q <= A;
-		end
-		else begin
+  always_ff @(posedge clk_i or negedge rst_ni)
+  begin : main_fsm_seq
+    if(~rst_ni) begin
+      r_cnt <= '0;
+      req_sel_q <= A;
+      resp_sel_q <= A;
+    end
+    else if(clear_i) begin
+      r_cnt <= '0;
+      req_sel_q <= A;
+      resp_sel_q <= A;
+    end
+    else begin
       if ( (req_sel_q == A && req_sel_n == B) | (r_cnt == ctrl_i.len && req_sel_q == D) ) begin
-			  r_cnt <= cnt;
-			end else begin
+        r_cnt <= cnt;
+      end else begin
         r_cnt <= r_cnt;
       end
       req_sel_q <= req_sel_n;
-			// Response select signal is simply the delayed request signal
-			// since r_valid is guaranteed the cycle after the grant
-			resp_sel_q <= req_sel_q;
-		end
-	end
+      // Response select signal is simply the delayed request signal
+      // since r_valid is guaranteed the cycle after the grant
+      resp_sel_q <= req_sel_q;
+    end
+  end
 
-	// Ideally we should switch the requests the cycle after grant arrives
-	// and the responses the cycle after the r_valid arrives.
-	// So we distinguish between a request mux and a response mux.
+  // Ideally we should switch the requests the cycle after grant arrives
+  // and the responses the cycle after the r_valid arrives.
+  // So we distinguish between a request mux and a response mux.
 
-	// Request select signal
-	always_comb begin
-		req_sel_n = req_sel_q;
-	
-		case (req_sel_q)
-			A:	begin 	
-					if (tcdm_fifo[2'b00].gnt) begin
-						req_sel_n = B;
-					end
-				end
-			B: 	begin
-					if (tcdm_fifo[2'b01].gnt) begin
-						if (ctrl_i.simple_mul) begin
-							req_sel_n = D;
-						end else begin
+  // Request select signal
+  always_comb begin
+    req_sel_n = req_sel_q;
+  
+    case (req_sel_q)
+      A:  begin   
+          if (tcdm_fifo[2'b00].gnt) begin
+            req_sel_n = B;
+          end
+        end
+      B:  begin
+          if (tcdm_fifo[2'b01].gnt) begin
+            if (ctrl_i.simple_mul) begin
+              req_sel_n = D;
+            end else begin
               if (r_cnt != ctrl_i.len) begin
                 req_sel_n = A; 
-							end else begin
+              end else begin
                 req_sel_n = C;
-						  end
+              end
             end
-					end
-				end
-			C:	begin
-					if (tcdm_fifo[2'b10].gnt) begin
-						req_sel_n = D;
-					end
-				end
-			D:	begin 	
-					if (tcdm_fifo[2'b11].gnt) begin
-						req_sel_n = A;
-					end
-				end
-			default : req_sel_n = req_sel_q;
-		endcase
+          end
+        end
+      C:  begin
+          if (tcdm_fifo[2'b10].gnt) begin
+            req_sel_n = D;
+          end
+        end
+      D:  begin   
+          if (tcdm_fifo[2'b11].gnt) begin
+            req_sel_n = A;
+          end
+        end
+      default : req_sel_n = req_sel_q;
+    endcase
 
-	end
-
-	// Response select signal
-	// always_comb begin
-	// 	resp_sel_n = resp_sel_q;
-	
-	// 	case (resp_sel_q)
-	// 		A:	begin 	
-	// 				if (tcdm_fifo[2'b00].r_valid) begin
-	// 					resp_sel_n = B;
-	// 				end
-	// 			end
-	// 		B: 	begin
-	// 				if (tcdm_fifo[2'b01].r_valid) begin
-	// 					if (ctrl_i.simple_mul) begin
-	// 						resp_sel_n = D;
-	// 					end else begin 
-	// 						resp_sel_n = C;
-	// 					end
-	// 				end
-	// 			end
-	// 		C:	begin
-	// 				if (tcdm_fifo[2'b10].r_valid) begin
-	// 					resp_sel_n = D;
-	// 				end
-	// 			end
-	// 		D:	begin 	
-	// 				if (tcdm_fifo[2'b11].r_valid) begin
-	// 					resp_sel_n = A;
-	// 				end
-	// 			end
-	// 		default : resp_sel_n = resp_sel_q;
-	// 	endcase
-
-	// end
+  end
 
 //-------------------------------------------------
 // TCDM MUX
@@ -353,136 +277,122 @@ end
 
 always_comb begin
 
-	// Default assignments
-	tcdm[0].req  = 'z;
-	tcdm[0].add  = 'z;
-	tcdm[0].wen  = 'z;
-	tcdm[0].be   = 'z;
-	tcdm[0].data = 'z;
-	tcdm_fifo[2'b00].gnt     = '0;
-	tcdm_fifo[2'b00].r_valid = '0;
-	tcdm_fifo[2'b00].r_data  = 'z;
-	tcdm_fifo[2'b01].gnt     = '0;
-	tcdm_fifo[2'b01].r_valid = '0;
-	tcdm_fifo[2'b01].r_data  = 'z;
-	tcdm_fifo[2'b10].gnt     = '0;
-	tcdm_fifo[2'b10].r_valid = '0;
-	tcdm_fifo[2'b10].r_data  = 'z;
-	tcdm_fifo[2'b11].gnt     = '0;
-	tcdm_fifo[2'b11].r_valid = '0;
-	tcdm_fifo[2'b11].r_data  = 'z;
+  // Default assignments
+  tcdm[0].req  = 'z;
+  tcdm[0].add  = 'z;
+  tcdm[0].wen  = 'z;
+  tcdm[0].be   = 'z;
+  tcdm[0].data = 'z;
+  tcdm_fifo[2'b00].gnt     = '0;
+  tcdm_fifo[2'b00].r_valid = '0;
+  tcdm_fifo[2'b00].r_data  = 'z;
+  tcdm_fifo[2'b01].gnt     = '0;
+  tcdm_fifo[2'b01].r_valid = '0;
+  tcdm_fifo[2'b01].r_data  = 'z;
+  tcdm_fifo[2'b10].gnt     = '0;
+  tcdm_fifo[2'b10].r_valid = '0;
+  tcdm_fifo[2'b10].r_data  = 'z;
+  tcdm_fifo[2'b11].gnt     = '0;
+  tcdm_fifo[2'b11].r_valid = '0;
+  tcdm_fifo[2'b11].r_data  = 'z;
 
-	case (req_sel_q)
-		A:	begin
-				tcdm[0].req  = tcdm_fifo[2'b00].req;
-				tcdm[0].add  = tcdm_fifo[2'b00].add;
-				tcdm[0].wen  = tcdm_fifo[2'b00].wen;
-				tcdm[0].be   = tcdm_fifo[2'b00].be;
-				tcdm[0].data = tcdm_fifo[2'b00].data;
+  case (req_sel_q)
+    A:  begin
+        tcdm[0].req  = tcdm_fifo[2'b00].req;
+        tcdm[0].add  = tcdm_fifo[2'b00].add;
+        tcdm[0].wen  = tcdm_fifo[2'b00].wen;
+        tcdm[0].be   = tcdm_fifo[2'b00].be;
+        tcdm[0].data = tcdm_fifo[2'b00].data;
 
-				tcdm_fifo[2'b00].gnt     = tcdm[0].gnt;
-				// tcdm_fifo[2'b00].r_valid = tcdm[0].r_valid;
-				// tcdm_fifo[2'b00].r_data  = tcdm[0].r_data;
-			end
-		B:	begin
-				tcdm[0].req  = tcdm_fifo[2'b01].req;
-				tcdm[0].add  = tcdm_fifo[2'b01].add;
-				tcdm[0].wen  = tcdm_fifo[2'b01].wen;
-				tcdm[0].be   = tcdm_fifo[2'b01].be;
-				tcdm[0].data = tcdm_fifo[2'b01].data;
+        tcdm_fifo[2'b00].gnt     = tcdm[0].gnt;
+        // tcdm_fifo[2'b00].r_valid = tcdm[0].r_valid;
+        // tcdm_fifo[2'b00].r_data  = tcdm[0].r_data;
+      end
+    B:  begin
+        tcdm[0].req  = tcdm_fifo[2'b01].req;
+        tcdm[0].add  = tcdm_fifo[2'b01].add;
+        tcdm[0].wen  = tcdm_fifo[2'b01].wen;
+        tcdm[0].be   = tcdm_fifo[2'b01].be;
+        tcdm[0].data = tcdm_fifo[2'b01].data;
 
-				tcdm_fifo[2'b01].gnt     = tcdm[0].gnt;
-				// tcdm_fifo[2'b01].r_valid = tcdm[0].r_valid;
-				// tcdm_fifo[2'b01].r_data  = tcdm[0].r_data;
-			end
-		C:	begin
-				tcdm[0].req  = tcdm_fifo[2'b10].req;
-				tcdm[0].add  = tcdm_fifo[2'b10].add;
-				tcdm[0].wen  = tcdm_fifo[2'b10].wen;
-				tcdm[0].be   = tcdm_fifo[2'b10].be;
-				tcdm[0].data = tcdm_fifo[2'b10].data;
+        tcdm_fifo[2'b01].gnt     = tcdm[0].gnt;
+        // tcdm_fifo[2'b01].r_valid = tcdm[0].r_valid;
+        // tcdm_fifo[2'b01].r_data  = tcdm[0].r_data;
+      end
+    C:  begin
+        tcdm[0].req  = tcdm_fifo[2'b10].req;
+        tcdm[0].add  = tcdm_fifo[2'b10].add;
+        tcdm[0].wen  = tcdm_fifo[2'b10].wen;
+        tcdm[0].be   = tcdm_fifo[2'b10].be;
+        tcdm[0].data = tcdm_fifo[2'b10].data;
 
-				tcdm_fifo[2'b10].gnt     = tcdm[0].gnt;
-				// tcdm_fifo[2'b10].r_valid = tcdm[0].r_valid;
-				// tcdm_fifo[2'b10].r_data  = tcdm[0].r_data;
-			end
-		D:	begin
-				tcdm[0].req  = tcdm_fifo[2'b11].req;
-				tcdm[0].add  = tcdm_fifo[2'b11].add;
-				tcdm[0].wen  = tcdm_fifo[2'b11].wen;
-				tcdm[0].be   = tcdm_fifo[2'b11].be;
-				tcdm[0].data = tcdm_fifo[2'b11].data;
+        tcdm_fifo[2'b10].gnt     = tcdm[0].gnt;
+        // tcdm_fifo[2'b10].r_valid = tcdm[0].r_valid;
+        // tcdm_fifo[2'b10].r_data  = tcdm[0].r_data;
+      end
+    D:  begin
+        tcdm[0].req  = tcdm_fifo[2'b11].req;
+        tcdm[0].add  = tcdm_fifo[2'b11].add;
+        tcdm[0].wen  = tcdm_fifo[2'b11].wen;
+        tcdm[0].be   = tcdm_fifo[2'b11].be;
+        tcdm[0].data = tcdm_fifo[2'b11].data;
 
-				tcdm_fifo[2'b11].gnt     = tcdm[0].gnt;
-				// tcdm_fifo[2'b11].r_valid = tcdm[0].r_valid;
-				// tcdm_fifo[2'b11].r_data  = tcdm[0].r_data;
-			end
-		default : ;
-	endcase
+        tcdm_fifo[2'b11].gnt     = tcdm[0].gnt;
+        // tcdm_fifo[2'b11].r_valid = tcdm[0].r_valid;
+        // tcdm_fifo[2'b11].r_data  = tcdm[0].r_data;
+      end
+    default : ;
+  endcase
 
-	case (resp_sel_q)
-		A:	begin
-				// tcdm[0].req  = tcdm_fifo[2'b00].req;
-				// tcdm[0].add  = tcdm_fifo[2'b00].add;
-				// tcdm[0].wen  = tcdm_fifo[2'b00].wen;
-				// tcdm[0].be   = tcdm_fifo[2'b00].be;
-				// tcdm[0].data = tcdm_fifo[2'b00].data;
+  case (resp_sel_q)
+    A:  begin
+        // tcdm[0].req  = tcdm_fifo[2'b00].req;
+        // tcdm[0].add  = tcdm_fifo[2'b00].add;
+        // tcdm[0].wen  = tcdm_fifo[2'b00].wen;
+        // tcdm[0].be   = tcdm_fifo[2'b00].be;
+        // tcdm[0].data = tcdm_fifo[2'b00].data;
 
-				// tcdm_fifo[2'b00].gnt     = tcdm[0].gnt;
-				tcdm_fifo[2'b00].r_valid = tcdm[0].r_valid;
-				tcdm_fifo[2'b00].r_data  = tcdm[0].r_data;
-			end
-		B:	begin
-				// tcdm[0].req  = tcdm_fifo[2'b01].req;
-				// tcdm[0].add  = tcdm_fifo[2'b01].add;
-				// tcdm[0].wen  = tcdm_fifo[2'b01].wen;
-				// tcdm[0].be   = tcdm_fifo[2'b01].be;
-				// tcdm[0].data = tcdm_fifo[2'b01].data;
+        // tcdm_fifo[2'b00].gnt     = tcdm[0].gnt;
+        tcdm_fifo[2'b00].r_valid = tcdm[0].r_valid;
+        tcdm_fifo[2'b00].r_data  = tcdm[0].r_data;
+      end
+    B:  begin
+        // tcdm[0].req  = tcdm_fifo[2'b01].req;
+        // tcdm[0].add  = tcdm_fifo[2'b01].add;
+        // tcdm[0].wen  = tcdm_fifo[2'b01].wen;
+        // tcdm[0].be   = tcdm_fifo[2'b01].be;
+        // tcdm[0].data = tcdm_fifo[2'b01].data;
 
-				// tcdm_fifo[2'b01].gnt     = tcdm[0].gnt;
-				tcdm_fifo[2'b01].r_valid = tcdm[0].r_valid;
-				tcdm_fifo[2'b01].r_data  = tcdm[0].r_data;
-			end
-		C:	begin
-				// tcdm[0].req  = tcdm_fifo[2'b10].req;
-				// tcdm[0].add  = tcdm_fifo[2'b10].add;
-				// tcdm[0].wen  = tcdm_fifo[2'b10].wen;
-				// tcdm[0].be   = tcdm_fifo[2'b10].be;
-				// tcdm[0].data = tcdm_fifo[2'b10].data;
+        // tcdm_fifo[2'b01].gnt     = tcdm[0].gnt;
+        tcdm_fifo[2'b01].r_valid = tcdm[0].r_valid;
+        tcdm_fifo[2'b01].r_data  = tcdm[0].r_data;
+      end
+    C:  begin
+        // tcdm[0].req  = tcdm_fifo[2'b10].req;
+        // tcdm[0].add  = tcdm_fifo[2'b10].add;
+        // tcdm[0].wen  = tcdm_fifo[2'b10].wen;
+        // tcdm[0].be   = tcdm_fifo[2'b10].be;
+        // tcdm[0].data = tcdm_fifo[2'b10].data;
 
-				// tcdm_fifo[2'b10].gnt     = tcdm[0].gnt;
-				tcdm_fifo[2'b10].r_valid = tcdm[0].r_valid;
-				tcdm_fifo[2'b10].r_data  = tcdm[0].r_data;
-			end
-		D:	begin
-				// tcdm[0].req  = tcdm_fifo[2'b11].req;
-				// tcdm[0].add  = tcdm_fifo[2'b11].add;
-				// tcdm[0].wen  = tcdm_fifo[2'b11].wen;
-				// tcdm[0].be   = tcdm_fifo[2'b11].be;
-				// tcdm[0].data = tcdm_fifo[2'b11].data;
+        // tcdm_fifo[2'b10].gnt     = tcdm[0].gnt;
+        tcdm_fifo[2'b10].r_valid = tcdm[0].r_valid;
+        tcdm_fifo[2'b10].r_data  = tcdm[0].r_data;
+      end
+    D:  begin
+        // tcdm[0].req  = tcdm_fifo[2'b11].req;
+        // tcdm[0].add  = tcdm_fifo[2'b11].add;
+        // tcdm[0].wen  = tcdm_fifo[2'b11].wen;
+        // tcdm[0].be   = tcdm_fifo[2'b11].be;
+        // tcdm[0].data = tcdm_fifo[2'b11].data;
 
-				// tcdm_fifo[2'b11].gnt     = tcdm[0].gnt;
-				tcdm_fifo[2'b11].r_valid = tcdm[0].r_valid;
-				tcdm_fifo[2'b11].r_data  = tcdm[0].r_data;
-			end
-		default : ;
-	endcase
+        // tcdm_fifo[2'b11].gnt     = tcdm[0].gnt;
+        tcdm_fifo[2'b11].r_valid = tcdm[0].r_valid;
+        tcdm_fifo[2'b11].r_data  = tcdm[0].r_data;
+      end
+    default : ;
+  endcase
 
 end
-
-  // TCDM-side MUX: 4 FIFOs are MUXed on MP memory interfaces
-  // hwpe_stream_tcdm_mux_static #(
-  //   .NB_IN_CHAN   ( 4 )
-  // ) i_tcdm_fifo_mux (
-  //   .clk_i        ( clk_i         ),
-  //   .rst_ni       ( rst_ni        ),
-  //   .clear_i      ( clear_i       ),
-  //   .sel_i        ( sel_q         ),
-  //   .in           ( tcdm_fifo     ),
-  //   .out          ( tcdm          )
-  // );
-
-
 
 
   // datapath-side FIFOs

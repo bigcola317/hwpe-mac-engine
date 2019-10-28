@@ -5,4 +5,4 @@ fpga/
 ips/
 ipstools/
 sim/
-golden/hwpe_stimuli_*
+golden/stim/hwpe_stimuli_d.hex

@@ -59,6 +59,88 @@ module mac_ctrl
   logic [11:0][31:0] ucode_registers_read;
 
   ctrl_fsm_t fsm_ctrl;
+  flags_fsm_t fsm_flags;
+
+  // logic [31:0] dbg_regs [0:31];
+  // logic [31:0] dbg_regs_next [0:31];
+
+  // genvar i;
+  // generate
+  //   for (i=0; i<32; i++) begin
+
+  //     always_ff @(posedge clk_i or negedge rst_ni) begin
+  //       if(~rst_ni) begin
+  //         dbg_regs[i] <= 0;
+  //       end else begin
+  //         dbg_regs[i] <= dbg_regs_next[i];
+  //       end
+  //     end  
+
+  //   end
+  // endgenerate
+
+  hwpe_ctrl_intf_periph periph_2_slave(.clk(clk_i));
+  logic periph_dest_slave, periph_dest_slave_delayed;
+
+  logic         periph_rvalid;
+  logic [31:0]  periph_rdata;
+  logic         periph_handshaked;
+
+  always_comb begin
+    periph_2_slave.req   = periph.req;
+    periph_2_slave.add   = periph.add;
+    periph_2_slave.wen   = periph.wen;
+    periph_2_slave.be    = periph.be;
+    periph_2_slave.data  = periph.data;
+    periph_2_slave.id    = periph.id;
+    periph.gnt           = periph_dest_slave ? periph_2_slave.gnt : 1'b1;
+    periph.r_data        = periph_dest_slave_delayed ? periph_2_slave.r_data : periph_rdata;
+    periph.r_valid       = periph_dest_slave_delayed ? periph_2_slave.r_valid : periph_rvalid;
+    periph.r_id          = periph_dest_slave_delayed ? periph_2_slave.r_id : '0;  
+  end
+
+  // Addresses after 0xA000_1000 are debug values.
+  assign periph_dest_slave = (periph.add[12]==1'b1) ? 1'b0 : 1'b1;
+
+  assign periph_gnt = 1'b1;
+
+  always_comb begin
+    periph_handshaked = 1'b0;
+    if (periph.req & (~periph_dest_slave)) begin
+      periph_handshaked = 1'b1;
+    end
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if(~rst_ni) begin
+      periph_rvalid <= 0;
+      periph_dest_slave_delayed <= 0;
+    end else begin
+      periph_rvalid <= periph_handshaked;
+      periph_dest_slave_delayed <= periph_dest_slave; 
+    end
+  end
+
+  // MUX dbg signals
+  always_comb begin
+    periph_rdata = '0;
+
+    if (periph_rvalid) begin
+      case (periph.add[4:2])
+
+        3'b000: periph_rdata = fsm_flags.state;
+        3'b001: periph_rdata = flags_engine_i.cnt;
+        3'b010: periph_rdata = flags_streamer_i.a_addr;
+        3'b011: periph_rdata = flags_streamer_i.b_addr;
+        3'b100: periph_rdata = flags_streamer_i.c_addr;
+        3'b101: periph_rdata = flags_streamer_i.d_addr;
+
+        default : periph_rdata = '0;
+
+      endcase
+    end
+  end
+
 
   /* Peripheral slave & register file */
   hwpe_ctrl_slave #(
@@ -71,7 +153,7 @@ module mac_ctrl
     .clk_i    ( clk_i       ),
     .rst_ni   ( rst_ni      ),
     .clear_o  ( clear_o     ),
-    .cfg      ( periph      ),
+    .cfg      ( periph_2_slave ),
     .ctrl_i   ( slave_ctrl  ),
     .flags_o  ( slave_flags ),
     .reg_file ( reg_file    )
@@ -142,7 +224,8 @@ module mac_ctrl
     .ctrl_slave_o     ( slave_ctrl         ),
     .flags_slave_i    ( slave_flags        ),
     .reg_file_i       ( reg_file           ),
-    .ctrl_i           ( fsm_ctrl           )
+    .ctrl_i           ( fsm_ctrl           ),
+    .flags_o          ( fsm_flags          )
   );
   always_comb
   begin

@@ -32,7 +32,8 @@ module mac_fsm (
   output ctrl_slave_t         ctrl_slave_o,
   input  flags_slave_t        flags_slave_i,
   input  ctrl_regfile_t       reg_file_i,
-  input  ctrl_fsm_t           ctrl_i
+  input  ctrl_fsm_t           ctrl_i,
+  output flags_fsm_t          flags_o
 );
 
   state_fsm_t curr_state, next_state;

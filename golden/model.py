@@ -1,3 +1,5 @@
+import sys
+
 SIMPLE_MUL		= 1
 INPUT_SIZE		= 512		# bytes
 VEC_LEN			= 8			# length of vectors in a and b (in 32-bit words)
@@ -7,12 +9,14 @@ INPUT_FILE_B 	= 'hwpe_stimuli_b.hex'
 INPUT_FILE_C 	= 'hwpe_stimuli_c.hex'
 OUTPUT_FILE_D 	= 'hwpe_stimuli_d.hex'
 
+STIM_PATH 		= 'stim'
+
 # signed 32-bit words from a hex file
 def words_from_hex(hex_file, file_size):
 	
 	words = []
 
-	for j in range(file_size/4):
+	for j in range(int(file_size/4)):
 		word = ''
 		i = 0
 		for i in range(4):
@@ -93,12 +97,18 @@ def compute(a, b, c, shift, simple_mult, vec_len):
 
 
 def main():
-	a, b, c = load_input_stimuli(INPUT_FILE_A, INPUT_FILE_B, INPUT_FILE_C, INPUT_SIZE, INPUT_SIZE, INPUT_SIZE/VEC_LEN)
+	global STIM_PATH
+	a, b, c = load_input_stimuli(STIM_PATH+'/'+INPUT_FILE_A, STIM_PATH+'/'+INPUT_FILE_B, STIM_PATH+'/'+INPUT_FILE_C, INPUT_SIZE, INPUT_SIZE, INPUT_SIZE/VEC_LEN)
 	print(c)
 	d = compute(a, b, c, simple_mult=SIMPLE_MUL, shift=SHIFT, vec_len=VEC_LEN)
-	words_to_hex(d, OUTPUT_FILE_D)
+	words_to_hex(d, STIM_PATH+'/'+OUTPUT_FILE_D)
 	print('Done.')
 
 
 if __name__ == '__main__':
+	if len(sys.argv) == 2:
+		STIM_PATH = sys.argv[1]
+	else:
+		print('Invalid number of arguments. Usage: {} stim_path')
+		sys.exit(1)
 	main()

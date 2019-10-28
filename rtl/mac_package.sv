@@ -68,6 +68,10 @@ package mac_package;
     hwpe_stream_package::flags_sourcesink_t b_source_flags;
     hwpe_stream_package::flags_sourcesink_t c_source_flags;
     hwpe_stream_package::flags_sourcesink_t d_sink_flags;
+    logic [31:0] a_addr;
+    logic [31:0] b_addr;
+    logic [31:0] c_addr;
+    logic [31:0] d_addr;
   } flags_streamer_t;
 
   typedef struct packed {
@@ -84,5 +88,9 @@ package mac_package;
     FSM_UPDATEIDX,
     FSM_TERMINATE
   } state_fsm_t;
+
+  typedef struct packed {
+    state_fsm_t state;
+  } flags_fsm_t;
 
 endpackage // mac_package
