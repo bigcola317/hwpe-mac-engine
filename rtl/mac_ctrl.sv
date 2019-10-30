@@ -61,6 +61,8 @@ module mac_ctrl
   ctrl_fsm_t fsm_ctrl;
   flags_fsm_t fsm_flags;
 
+  logic started, done;
+
   // logic [31:0] dbg_regs [0:31];
   // logic [31:0] dbg_regs_next [0:31];
 
@@ -126,18 +128,48 @@ module mac_ctrl
     periph_rdata = '0;
 
     if (periph_rvalid) begin
-      case (periph.add[4:2])
+      case (periph.add[5:2])
 
-        3'b000: periph_rdata = fsm_flags.state;
-        3'b001: periph_rdata = flags_engine_i.cnt;
-        3'b010: periph_rdata = flags_streamer_i.a_addr;
-        3'b011: periph_rdata = flags_streamer_i.b_addr;
-        3'b100: periph_rdata = flags_streamer_i.c_addr;
-        3'b101: periph_rdata = flags_streamer_i.d_addr;
+        4'b0000: periph_rdata = fsm_flags.state;
+        4'b0001: periph_rdata = flags_engine_i.cnt;
+        4'b0010: periph_rdata = flags_streamer_i.a_addr;
+        4'b0011: periph_rdata = flags_streamer_i.b_addr;
+        4'b0100: periph_rdata = flags_streamer_i.c_addr;
+        4'b0101: periph_rdata = flags_streamer_i.d_addr;
+        4'b0110: periph_rdata = reg_file.hwpe_params[MAC_REG_NB_ITER];
+        4'b0111: periph_rdata = reg_file.hwpe_params[MAC_REG_LEN_ITER];
+        4'b1000: periph_rdata = reg_file.hwpe_params[MAC_REG_SHIFT_SIMPLEMUL];
+        4'b1001: periph_rdata = reg_file.hwpe_params[MAC_REG_SHIFT_VECTSTRIDE];
+        4'b1010: periph_rdata = started;
+        4'b1011: periph_rdata = done;
 
         default : periph_rdata = '0;
 
       endcase
+    end
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if(~rst_ni) begin
+      started <= 0;
+    end else begin
+      if (slave_flags.start) begin
+        started <= 1;
+      end else begin
+        started <= started;
+      end
+    end
+  end
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if(~rst_ni) begin
+      done <= 0;
+    end else begin
+      if (slave_ctrl.done) begin
+        done <= 1;
+      end else begin
+        done <= done;
+      end
     end
   end
 
