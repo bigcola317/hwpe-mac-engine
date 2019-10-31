@@ -38,6 +38,8 @@ module mac_fsm (
 
   state_fsm_t curr_state, next_state;
 
+  assign flags_o.state = curr_state;
+
   always_ff @(posedge clk_i or negedge rst_ni)
   begin : main_fsm_seq
     if(~rst_ni) begin
