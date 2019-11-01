@@ -217,6 +217,9 @@ module mac_fsm (
           ctrl_slave_o.done = 1'b1;
         end
       end
+      default: begin
+        next_state = FSM_IDLE;
+      end
     endcase // curr_state
   end
 

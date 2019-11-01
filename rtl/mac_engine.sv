@@ -237,11 +237,9 @@ module mac_engine
   begin
     if(~rst_ni) begin
       r_cnt <= '0;
-      started <= '0;
     end
     else if(ctrl_i.clear) begin
       r_cnt <= '0;
-      started <= '0;
     end
     else if(ctrl_i.enable) begin
       if (started && (r_cnt < ctrl_i.len) && (r_mult_valid & r_mult_ready == 1'b1)) begin

@@ -142,6 +142,10 @@ module mac_ctrl
         4'b1001: periph_rdata = reg_file.hwpe_params[MAC_REG_SHIFT_VECTSTRIDE];
         4'b1010: periph_rdata = started;
         4'b1011: periph_rdata = done;
+        4'b1100: periph_rdata = flags_streamer_i.a_source_flags.ready_start;
+        4'b1101: periph_rdata = flags_streamer_i.b_source_flags.ready_start;
+        4'b1110: periph_rdata = flags_streamer_i.c_source_flags.ready_start;
+        4'b1111: periph_rdata = flags_streamer_i.d_sink_flags.ready_start;
 
         default : periph_rdata = '0;
 
