@@ -23,7 +23,7 @@ module mac_fsm (
   input  logic                test_mode_i,
   input  logic                clear_i,
   // ctrl & flags
-  output ctrl_streamer_t      ctrl_streamer_o,
+  output fsm_ctrl_streamer_t  ctrl_streamer_o,
   input  flags_streamer_t     flags_streamer_i,
   output ctrl_engine_t        ctrl_engine_o,
   input  flags_engine_t       flags_engine_i,

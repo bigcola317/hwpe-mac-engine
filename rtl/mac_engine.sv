@@ -96,6 +96,8 @@ module mac_engine
 
     logic started;
 
+    assign flags_o.started = started;
+
     always_ff @(posedge clk_i or negedge rst_ni)
     begin
         if(~rst_ni) begin

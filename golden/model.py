@@ -82,7 +82,7 @@ def compute(a, b, c, shift, simple_mult, vec_len):
 		b_i = b[i]
 		mul += a_i*b_i
 		if simple_mult!=1 and i%vec_len==(vec_len-1):
-			print('{}, {}, {}'.format(i, i/vec_len, len(c)))
+			# print('{}, {}, {}'.format(i, i/vec_len, len(c)))
 			mul += (c[i/vec_len] << shift)
 			shifted = mul >> shift
 			d.append(shifted)
@@ -97,18 +97,17 @@ def compute(a, b, c, shift, simple_mult, vec_len):
 
 
 def main():
-	global STIM_PATH
 	a, b, c = load_input_stimuli(STIM_PATH+'/'+INPUT_FILE_A, STIM_PATH+'/'+INPUT_FILE_B, STIM_PATH+'/'+INPUT_FILE_C, INPUT_SIZE, INPUT_SIZE, INPUT_SIZE/VEC_LEN)
-	print(c)
 	d = compute(a, b, c, simple_mult=SIMPLE_MUL, shift=SHIFT, vec_len=VEC_LEN)
 	words_to_hex(d, STIM_PATH+'/'+OUTPUT_FILE_D)
-	print('Done.')
+	print('Done computing stimuli with SIMPLE_MUL={}. Stimuli at:\n{}'.format(SIMPLE_MUL, STIM_PATH))
 
 
 if __name__ == '__main__':
-	if len(sys.argv) == 2:
+	if len(sys.argv) == 3:
 		STIM_PATH = sys.argv[1]
+		SIMPLE_MUL = int(sys.argv[2])
 	else:
-		print('Invalid number of arguments. Usage: {} stim_path')
+		print('Invalid number of arguments. Usage: {} <stim_path> <simple_mul=0|1>')
 		sys.exit(1)
 	main()
