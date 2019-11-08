@@ -78,6 +78,52 @@ module mac_engine
   // are easily synthesizable and much more readable than Verilog-2001-ish code.
 
 
+//////////////////////////// DBG REGS ///////////////////////////////////////////////
+
+  logic [31:0] dbg_a_q, dbg_a_n, dbg_b_q, dbg_b_n, dbg_c_q, dbg_c_n, dbg_d_q, dbg_d_n; 
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if(~rst_ni) begin
+      dbg_a_q <= 32'hBEEEEEEF;
+      dbg_b_q <= 32'hBEEEEEEF;
+      dbg_c_q <= 32'hBEEEEEEF;
+      dbg_d_q <= 32'hBEEEEEEF;
+    end else begin
+      dbg_a_q <= dbg_a_n;
+      dbg_b_q <= dbg_b_n;
+      dbg_c_q <= dbg_c_n;
+      dbg_d_q <= dbg_d_n;
+    end
+  end
+
+  always_comb begin
+    dbg_a_n = dbg_a_q;
+    dbg_b_n = dbg_b_q;
+    dbg_c_n = dbg_c_q;
+    dbg_d_n = dbg_d_q;
+
+    if (a_i.valid) begin
+      dbg_a_n = a_i.data;
+    end
+    if (b_i.valid) begin
+      dbg_b_n = b_i.data;
+    end
+    if (c_i.valid) begin
+      dbg_c_n = c_i.data;
+    end
+    if (d_o.valid) begin
+      dbg_a_n = a_i.data;
+    end
+
+  end
+
+  assign flags_o.a = dbg_a_q;
+  assign flags_o.b = dbg_b_q;
+  assign flags_o.c = dbg_c_q;
+  assign flags_o.d = dbg_d_q;
+
+///////////////////////////////////////////////////////////////////////////////////
+
   // shift c_i by ctrl_i.shift bits to the left
   always_comb
   begin : shift_c
@@ -89,6 +135,17 @@ module mac_engine
   begin : mult_a_X_b
     mult = $signed(a_i.data) * $signed(b_i.data);
   end
+
+//--------------------------------------------------------
+// DBG FLAGS
+//--------------------------------------------------------
+
+  assign flags_o.mult = r_mult;
+  assign flags_o.mult_valid = r_mult_valid;
+  assign flags_o.mult_ready = r_mult_ready;
+  // assign flags_o.c_shifted = c_shifted;
+  assign flags_o.r_acc = r_acc[63:0];
+  assign flags_o.d_valid = d_o.valid;
 
 //--------------------------------------------------------
 // STARTED STATUS
@@ -107,11 +164,14 @@ module mac_engine
           started <= '0;
         end
         else if(ctrl_i.enable) begin
-            if (ctrl_i.start) begin
-                started <= '1;
-            end else begin
-                started <= started;
-            end
+          if (ctrl_i.start) begin
+            started <= '1;
+          end else begin
+            started <= started;
+          end
+        end
+        else begin
+          started <= '0;
         end
     end
 

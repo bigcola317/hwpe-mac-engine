@@ -67,6 +67,16 @@ module mac_ctrl
   logic dbg_active;
   logic r_toggle_dbg;
   logic r_step_dbg;
+  logic r_hreq_dbg;
+
+  logic [31:0] r_haddr_dbg_q;
+  logic [31:0] r_haddr_dbg_n;
+  logic r_hwen_dbg_q;
+  logic r_hwen_dbg_n;
+  logic [31:0] r_hwdata_dbg_q;
+  logic [31:0] r_hwdata_dbg_n;
+  logic [31:0] r_hrdata_dbg_q;
+  logic [31:0] r_hrdata_dbg_n;
 
 /////////////////////////////////////////////////////////////////
 // MUX periph requests between hwpe_ctrl_slave and debug system
@@ -118,39 +128,56 @@ module mac_ctrl
     periph_rdata = '0;
 
     if (periph_rvalid) begin
-      case (periph.add[6:2])
+      case (periph.add[7:2])
 
-        5'b00000: periph_rdata = fsm_flags.state;
-        5'b00001: periph_rdata = flags_engine_i.cnt;
-        5'b00010: periph_rdata = flags_streamer_i.a_addr;
-        5'b00011: periph_rdata = flags_streamer_i.b_addr;
-        5'b00100: periph_rdata = flags_streamer_i.c_addr;
-        5'b00101: periph_rdata = flags_streamer_i.d_addr;
-        5'b00110: periph_rdata = reg_file.hwpe_params[MAC_REG_NB_ITER];
-        5'b00111: periph_rdata = reg_file.hwpe_params[MAC_REG_LEN_ITER];
-        5'b01000: periph_rdata = reg_file.hwpe_params[MAC_REG_SHIFT_SIMPLEMUL];
-        5'b01001: periph_rdata = reg_file.hwpe_params[MAC_REG_SHIFT_VECTSTRIDE];
-        5'b01010: periph_rdata = started;
-        5'b01011: periph_rdata = done;
-        5'b01100: periph_rdata = flags_streamer_i.a_source_flags.ready_start;
-        5'b01101: periph_rdata = flags_streamer_i.b_source_flags.ready_start;
-        5'b01110: periph_rdata = flags_streamer_i.c_source_flags.ready_start;
-        5'b01111: periph_rdata = flags_streamer_i.d_sink_flags.ready_start;
-        5'b10000: periph_rdata = flags_engine_i.started;
-        5'b10001: periph_rdata = flags_streamer_i.a_source_flags.state;
-        5'b10010: periph_rdata = flags_streamer_i.b_source_flags.state;
-        5'b10011: periph_rdata = flags_streamer_i.c_source_flags.state;
-        5'b10100: periph_rdata = flags_streamer_i.d_sink_flags.state;
-        5'b10101: periph_rdata = ucode_flags.offs[MAC_UCODE_A_OFFS];
-        5'b10110: periph_rdata = ucode_flags.offs[MAC_UCODE_B_OFFS];
-        5'b10111: periph_rdata = ucode_flags.offs[MAC_UCODE_C_OFFS];
-        5'b11000: periph_rdata = ucode_flags.offs[MAC_UCODE_D_OFFS];
+        6'b000000: periph_rdata = fsm_flags.state;
+        6'b000001: periph_rdata = flags_engine_i.cnt;
+        6'b000010: periph_rdata = flags_streamer_i.a_addr;
+        6'b000011: periph_rdata = flags_streamer_i.b_addr;
+        6'b000100: periph_rdata = flags_streamer_i.c_addr;
+        6'b000101: periph_rdata = flags_streamer_i.d_addr;
+        6'b000110: periph_rdata = reg_file.hwpe_params[MAC_REG_NB_ITER];
+        6'b000111: periph_rdata = reg_file.hwpe_params[MAC_REG_LEN_ITER];
+        6'b001000: periph_rdata = reg_file.hwpe_params[MAC_REG_SHIFT_SIMPLEMUL];
+        6'b001001: periph_rdata = reg_file.hwpe_params[MAC_REG_SHIFT_VECTSTRIDE];
+        6'b001010: periph_rdata = started;
+        6'b001011: periph_rdata = done;
+        6'b001100: periph_rdata = flags_streamer_i.a_source_flags.ready_start;
+        6'b001101: periph_rdata = flags_streamer_i.b_source_flags.ready_start;
+        6'b001110: periph_rdata = flags_streamer_i.c_source_flags.ready_start;
+        6'b001111: periph_rdata = flags_streamer_i.d_sink_flags.ready_start;
+        6'b010000: periph_rdata = flags_engine_i.started;
+        6'b010001: periph_rdata = flags_streamer_i.a_source_flags.state;
+        6'b010010: periph_rdata = flags_streamer_i.b_source_flags.state;
+        6'b010011: periph_rdata = flags_streamer_i.c_source_flags.state;
+        6'b010100: periph_rdata = flags_streamer_i.d_sink_flags.state;
+        6'b010101: periph_rdata = ucode_flags.offs[MAC_UCODE_A_OFFS];
+        6'b010110: periph_rdata = ucode_flags.offs[MAC_UCODE_B_OFFS];
+        6'b010111: periph_rdata = ucode_flags.offs[MAC_UCODE_C_OFFS];
+        6'b011000: periph_rdata = ucode_flags.offs[MAC_UCODE_D_OFFS];
+
+        6'b011001: periph_rdata = flags_engine_i.a;
+        6'b011010: periph_rdata = flags_engine_i.b;
+        6'b011011: periph_rdata = flags_engine_i.c;
+        6'b011100: periph_rdata = flags_engine_i.d;
+        6'b011101: periph_rdata = flags_engine_i.mult[31:0];
+        6'b011110: periph_rdata = flags_engine_i.mult[63:32];
+        6'b011111: periph_rdata = flags_engine_i.r_acc[31:0];
+        6'b100000: periph_rdata = flags_engine_i.r_acc[63:32];
+        6'b100001: periph_rdata = flags_engine_i.mult_valid;
+        6'b100010: periph_rdata = flags_engine_i.mult_ready;
+        6'b100011: periph_rdata = flags_engine_i.d_valid;
+        6'b100100: periph_rdata = flags_engine_i.acc_done;
+
+        6'b100101: periph_rdata = dbg_active;
+        6'b100110: periph_rdata = r_hrdata_dbg_q;
 
         default : periph_rdata = '0;
 
       endcase
     end
   end
+
 
   assign ctrl_streamer_o.dbg_active = dbg_active;
   assign ctrl_streamer_o.dbg_step = r_step_dbg;
@@ -159,18 +186,47 @@ module mac_ctrl
   always_comb begin
     r_toggle_dbg = '0;
     r_step_dbg = '0;
+    r_hreq_dbg = '0;
+    r_haddr_dbg_n = r_haddr_dbg_q;
+    r_hwen_dbg_n = r_hwen_dbg_q;
+    r_hwdata_dbg_n = r_hwdata_dbg_q;
 
     if (periph.req & (~periph_dest_slave) & ~periph.wen) begin
       if (periph.add[8] == 1'b1) begin
-        case (periph.add[4:2])
+        case (periph.add[5:2])
 
-          2'b00: r_toggle_dbg = periph.data;
-          2'b01: r_step_dbg = periph.data;
+          3'b000: r_toggle_dbg = periph.data;
+          3'b001: r_step_dbg = periph.data;
+          3'b010: r_haddr_dbg_n = periph.data;
+          3'b011: r_hwen_dbg_n = periph.data;
+          3'b100: r_hwdata_dbg_n = periph.data;
+          3'b101: r_hreq_dbg = periph.data;
 
           default: ;
 
         endcase
       end
+    end
+  end
+
+  assign ctrl_streamer_o.dbg_hreq = r_hreq_dbg;
+  assign ctrl_streamer_o.dbg_haddr = r_haddr_dbg_q;
+  assign ctrl_streamer_o.dbg_hwen = r_hwen_dbg_q;
+  assign ctrl_streamer_o.dbg_hwdata = r_hwdata_dbg_q;
+  assign r_hrdata_dbg_n = flags_streamer_i.dbg_hrvalid ? flags_streamer_i.dbg_hrdata : r_hrdata_dbg_q;
+
+  // Debug AHB test registers
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if(~rst_ni) begin
+      r_haddr_dbg_q <= 0;
+      r_hwen_dbg_q <= 0;
+      r_hwdata_dbg_q <= 0;
+      r_hrdata_dbg_q <= 0;
+    end else begin
+      r_haddr_dbg_q <= r_haddr_dbg_n;
+      r_hwen_dbg_q <= r_hwen_dbg_n;
+      r_hwdata_dbg_q <= r_hwdata_dbg_n;
+      r_hrdata_dbg_q <= r_hrdata_dbg_n;
     end
   end
 

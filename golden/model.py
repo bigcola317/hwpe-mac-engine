@@ -83,7 +83,7 @@ def compute(a, b, c, shift, simple_mult, vec_len):
 		mul += a_i*b_i
 		if simple_mult!=1 and i%vec_len==(vec_len-1):
 			# print('{}, {}, {}'.format(i, i/vec_len, len(c)))
-			mul += (c[i/vec_len] << shift)
+			mul += (c[i//vec_len] << shift)
 			shifted = mul >> shift
 			d.append(shifted)
 			# print('x + {} = {} >> {}'.format(c[i/vec_len], mul, shifted))

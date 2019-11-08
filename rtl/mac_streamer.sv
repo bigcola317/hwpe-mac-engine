@@ -148,6 +148,29 @@ module mac_streamer
   );
 
 
+logic dbg_hreq_q, dbg_hreq_n, dbg_gnt;
+
+always_comb begin
+  dbg_hreq_n = dbg_hreq_q;
+
+  if (ctrl_i.dbg_hreq) begin
+    dbg_hreq_n = 1'b1;
+  end
+
+  if (dbg_gnt) begin
+    dbg_hreq_n = 1'b0;
+  end
+end
+
+always_ff @(posedge clk_i) begin
+  if(~rst_ni) begin
+    dbg_hreq_q <= 0;
+  end else begin
+    dbg_hreq_q <= dbg_hreq_n;
+  end
+end
+
+
 always_comb begin
   tcdm_muxed[0].req       = tcdm_0[0].req;
   tcdm_muxed[0].add       = tcdm_0[0].add;
@@ -185,12 +208,15 @@ always_comb begin
   tcdm_3[0].r_data        = tcdm_muxed[3].r_data;
   tcdm_3[0].r_valid       = tcdm_muxed[3].r_valid;
 
-  // dummy inputs to TCDM in dbg mode
-  tcdm_muxed[4].req       = '0;
-  tcdm_muxed[4].add       = '0;
-  tcdm_muxed[4].wen       = '0;
-  tcdm_muxed[4].be        = '0;
-  tcdm_muxed[4].data      = '0;
+  // Debug inputs to TCDM in dbg mode
+  tcdm_muxed[4].req       = dbg_hreq_q;
+  tcdm_muxed[4].add       = ctrl_i.dbg_haddr;
+  tcdm_muxed[4].wen       = ~ctrl_i.dbg_hwen;
+  tcdm_muxed[4].be        = 4'b1111;
+  tcdm_muxed[4].data      = ctrl_i.dbg_hwdata;
+  dbg_gnt                 = tcdm_muxed[4].gnt;
+  flags_o.dbg_hrdata      = tcdm_muxed[4].r_data;
+  flags_o.dbg_hrvalid     = tcdm_muxed[4].r_valid;
 
 end
 

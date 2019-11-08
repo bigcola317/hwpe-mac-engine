@@ -51,6 +51,16 @@ package mac_package;
 
   typedef struct packed {
     logic unsigned [$clog2(MAC_CNT_LEN):0] cnt; // 1 bit more as cnt starts from 1, not 0
+    logic [31:0] a;
+    logic [31:0] b;
+    logic [31:0] c;
+    logic [31:0] d;
+    logic [63:0] mult;
+    // logic [63:0] c_shifted;
+    logic mult_valid;
+    logic mult_ready;
+    logic [63:0] r_acc;
+    logic d_valid;
     logic started;
     logic acc_done;
   } flags_engine_t;
@@ -69,6 +79,10 @@ package mac_package;
     fsm_ctrl_streamer_t fsm_ctrl;
     logic dbg_active;
     logic dbg_step;
+    logic dbg_hreq;
+    logic [31:0] dbg_haddr;
+    logic dbg_hwen;
+    logic [31:0] dbg_hwdata;
   } ctrl_streamer_t;
 
   typedef struct packed {
@@ -80,6 +94,8 @@ package mac_package;
     logic [31:0] b_addr;
     logic [31:0] c_addr;
     logic [31:0] d_addr;
+    logic [31:0] dbg_hrdata;
+    logic dbg_hrvalid;
   } flags_streamer_t;
 
   typedef struct packed {
